@@ -1,11 +1,10 @@
 import requests
-from fastapi import APIRouter, HTTPException
 from bson import ObjectId
 from bson.errors import InvalidId
+from fastapi import APIRouter, HTTPException
 
 from database.connection import products_collection
 from schemas.product import Product, product_serializer
-
 
 router = APIRouter(prefix="/products", tags=["Products"])
 

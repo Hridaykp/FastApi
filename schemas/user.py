@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 # User registration and login schemas
 class UserRegister(BaseModel):
     username: str

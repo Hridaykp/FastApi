@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
-from fastapi import HTTPException
-from .auth import role_required
+from fastapi import APIRouter, Depends, HTTPException
+
 from database.connection import users_collection
 
+from .auth import role_required
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 

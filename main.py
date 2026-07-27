@@ -1,8 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, products, admin
 
-app = FastAPI(title="E-Comm(FastAPI)")
+from routers import admin, auth, products
+
+app = FastAPI(
+    title="Secure Product Management API",
+    version="1.0.0",
+    description="""
+            Backend API built with FastAPI featuring:
+            - JWT-based authentication
+            - RBAC
+            - Product CRUD ops
+            - Secure database integration
+            """
+)
 
 # Add CORS middleware
 app.add_middleware(

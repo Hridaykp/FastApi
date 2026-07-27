@@ -1,11 +1,24 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
-from database.connection import users_collection, tokens_collection
-from schemas.user import UserRegister, RefreshTokenRequest, LogoutRequest
-from core.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
-from core.security import hash_password, verify_password, create_access_token, create_refresh_token
+
+from core.config import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    ALGORITHM,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    SECRET_KEY,
+)
+from core.security import (
+    create_access_token,
+    create_refresh_token,
+    hash_password,
+    verify_password,
+)
+from database.connection import tokens_collection, users_collection
+from schemas.user import LogoutRequest, RefreshTokenRequest, UserRegister
+
 # from fastapi.responses import JSONResponse
 
 
