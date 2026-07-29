@@ -1,21 +1,81 @@
 import requests
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from database.connection import products_collection
 from schemas.product import Product, product_serializer
 
+from .auth import role_required
+
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
-@router.get("")
-def get_Products():
-    products = list(products_collection.find())
+# Sync products from DummyJSON API to MongoDB
+@router.post("/sync-products")
+def sync_products(admin=Depends(role_required(["admin"]))):
+    response = requests.get("https://dummyjson.com/products")
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch products from DummyJSON"
+        )
+
+    data = response.json()
+    inserted_count, skipped_count = 0, 0
+
+    for product in data["products"]:
+
+        # Skip if product already exists
+        existing_product = products_collection.find_one({"external_id": product["id"]})
+        if existing_product:
+            skipped_count += 1
+            continue
+
+        products_collection.insert_one({
+            "external_id": product["id"],
+            "title": product["title"],
+            "description": product["description"],
+            "category": product["category"],
+            "price": product["price"],
+            "rating": product["rating"],
+        })
+
+        inserted_count += 1
+
     return {
-        "message": "products are here",
-        "products": [product_serializer(p) for p in products]   
-    }   
+        "message": "Products synced successfully",
+        "products_inserted": inserted_count,
+        "products_skipped": skipped_count
+    }
+
+
+
+# Create a new product
+@router.post("")
+def add_Product(product: Product, admin = Depends(role_required(["admin"])), status_code=201):
+    
+    result = products_collection.insert_one(product.model_dump())
+    return {
+        "message": "product created successfully",
+        "id": str(result.inserted_id),
+        "product": product
+    }
+
+
+
+
+# Get all products
+@router.get("")
+def get_products():
+    products = list(products_collection.find())
+
+    return {
+        "message": "Products fetched successfully",
+        "count": len(products),
+        "products": [product_serializer(product) for product in products]
+    } 
 
 
 # Get product by ID
@@ -23,8 +83,8 @@ def get_Products():
 def get_productbyID(id: str):
     try:
         product = products_collection.find_one({"_id": ObjectId(id)})
-    except InvalidId:
-        raise HTTPException(status_code=400, detail="Invalid product ID format")
+    except InvalidId: 
+        raise HTTPException(status_code=400, detail="Invalid product ID format")  from None
 
     if product:
         return {
@@ -48,15 +108,6 @@ def get_Product(price: int):
 
 
 
-# Add a new product
-@router.post("")
-def add_Product(product: Product):
-    result = products_collection.insert_one(product.model_dump())
-    return {
-        "message": "product created successfully",
-        "id": str(result.inserted_id),
-        "product": product
-    }
 
 
 
@@ -69,7 +120,7 @@ def update_Products(prod_id: str, updated_product: Product):
             {"$set": updated_product.model_dump()}
         )
     except InvalidId:
-        raise HTTPException(status_code=400, detail="Invalid product ID format")
+        raise HTTPException(status_code=400, detail="Invalid product ID format") from None
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="product id not found")
@@ -82,7 +133,7 @@ def delete_Product(prod_id: str):
     try:
         resid = products_collection.delete_one({"_id": ObjectId(prod_id)})
     except InvalidId:
-        raise HTTPException(status_code=400, detail="Invalid product ID format")
+        raise HTTPException(status_code=400, detail="Invalid product ID format") from None
 
     if resid.deleted_count == 1:
         return {"message": "Product deleted successfully"}
