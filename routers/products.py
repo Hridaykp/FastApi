@@ -1,7 +1,7 @@
 import requests
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from database.connection import products_collection
 from schemas.product import Product, product_serializer
@@ -78,6 +78,43 @@ def get_products():  #skip: int = 0, limit: int = 20
     } 
 
 
+#get products by price range
+@router.get("/price")
+def get_products_by_price(
+    min_price: float | None = Query(None, ge=0),
+    max_price: float | None = Query(None, ge=0),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100)
+):
+    # Validate range
+    if min_price is not None and max_price is not None and min_price > max_price:
+        raise HTTPException(status_code=400, detail="min_price cannot be greater than max_price")
+
+    # Build MongoDB price query
+    price_query = {}
+    if min_price is not None:
+        price_query["$gte"] = min_price
+    if max_price is not None:
+        price_query["$lte"] = max_price
+
+    query = {}
+    if price_query:
+        query["price"] = price_query
+
+    total_matching = products_collection.count_documents(query)
+    cursor = products_collection.find(query).skip(skip).limit(limit)
+    products = [product_serializer(p) for p in cursor]
+
+    return {
+        "message": "Products fetched successfully",
+        "count": len(products),
+        "total_matching": total_matching,
+        "skip": skip,
+        "limit": limit,
+        "products": products
+    }
+
+
 # Get product by ID
 @router.get("/{product_id}")
 def get_productbyID(product_id: str):
@@ -127,20 +164,6 @@ def delete_Product(product_id: str, admin = Depends(role_required(["admin"]))):
     if resid.deleted_count == 1:
         return {"message": "Product deleted successfully"}
     raise HTTPException(status_code=404, detail=f"product_id {product_id} not found")
-
-
-
-# Get products by price range
-@router.get("/price/{price}")
-def get_Product(price: float):
-    response = requests.get("https://dummyjson.com/products")
-    products = response.json() 
-    print(products)
-    filtered_price = []
-    for prod in products:
-        if price <= prod["price"] < (price + 1):
-            filtered_price.append(prod)
-    return filtered_price
 
 
 
